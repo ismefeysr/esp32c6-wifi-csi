@@ -18,6 +18,8 @@ def parse_line(line):
     try:
         row = next(csv.reader(io.StringIO(line)))
         vals = json.loads(row[-1])
+        if not isinstance(vals, list):            # truncated line: last field is not the array
+            return None
         return np.array(vals, dtype=np.int16)
     except Exception:
         return None
