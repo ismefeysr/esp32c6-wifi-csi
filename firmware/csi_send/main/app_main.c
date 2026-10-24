@@ -23,11 +23,8 @@
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "esp_now.h"
-#include "led_strip.h"
+#include "status_led.h"
 
-/* Onboard WS2812 on ESP32-C6-DevKit; receiver = blue, sender = green */
-#define STATUS_LED_GPIO                     8
-#define STATUS_LED_RGB                      0, 20, 0
 
 #define CONFIG_LESS_INTERFERENCE_CHANNEL   11
 
@@ -52,20 +49,6 @@
 static const uint8_t CONFIG_CSI_SEND_MAC[] = {0x1a, 0x00, 0x00, 0x00, 0x00, 0x00};
 static const char *TAG = "csi_send";
 
-static void status_led_init()
-{
-    led_strip_handle_t led;
-    led_strip_config_t strip_config = {
-        .strip_gpio_num = STATUS_LED_GPIO,
-        .max_leds = 1,
-    };
-    led_strip_rmt_config_t rmt_config = {
-        .resolution_hz = 10 * 1000 * 1000,
-    };
-    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led));
-    ESP_ERROR_CHECK(led_strip_set_pixel(led, 0, STATUS_LED_RGB));
-    ESP_ERROR_CHECK(led_strip_refresh(led));
-}
 
 static void wifi_init()
 {
@@ -158,7 +141,7 @@ void app_main()
     }
     ESP_ERROR_CHECK(ret);
 
-    status_led_init();
+    ESP_ERROR_CHECK(status_led_init(STATUS_LED_COLOR_SENDER));
 
     /**
      * @brief Initialize Wi-Fi

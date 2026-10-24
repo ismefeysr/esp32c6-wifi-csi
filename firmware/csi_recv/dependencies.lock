@@ -49,6 +49,6 @@ direct_dependencies:
 - espressif/esp_csi_gain_ctrl
 - espressif/led_strip
 - idf
-manifest_hash: 2dbff54dfda65d9f6611cc6e24befef3c771a016f718e83f9637903325400c28
+manifest_hash: 5cde75468b4139ad57fc4c1e57f39d29048f0fd2f724181797bf757d251a5a7d
 target: esp32c6
 version: 2.0.0
