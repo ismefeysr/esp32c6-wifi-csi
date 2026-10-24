@@ -1,5 +1,10 @@
 # esp32c6-wifi-csi
 
+[![CI](https://github.com/ismefeysr/esp32c6-wifi-csi/actions/workflows/ci.yml/badge.svg)](https://github.com/ismefeysr/esp32c6-wifi-csi/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![ESP-IDF v5.5](https://img.shields.io/badge/ESP--IDF-v5.5-red)
+![Target: ESP32-C6](https://img.shields.io/badge/target-ESP32--C6-orange)
+
 **Router-less human presence and motion detection using Wi-Fi Channel State Information (CSI) on two ESP32-C6 boards.**
 
 This repository is my final project for the **Embedded Systems** course in Electrical and Electronics Engineering (EEE). I am completing it to pass the course.
@@ -52,11 +57,15 @@ The onboard RGB LED identifies each board at a glance: **green = sender**, **blu
 ```
 .
 ├── firmware/
-│   ├── csi_send/        # sender application (ESP-NOW broadcaster)
-│   └── csi_recv/        # receiver application (CSI capture + UART output)
-├── analysis/            # Python tools: link check, logging, baseline, ML (see analysis/README.md)
-├── external/esp-csi/    # Espressif esp-csi, used as an unmodified upstream reference
-└── data/                # recorded datasets, created locally (not tracked in git)
+│   ├── csi_send/            # sender application (ESP-NOW broadcaster)
+│   ├── csi_recv/            # receiver application (CSI capture + UART output)
+│   └── components/
+│       └── status_led/      # shared onboard RGB LED driver (board identification)
+├── analysis/                # Python tools: link check, logging, baseline, ML (see analysis/README.md)
+├── tests/                   # pytest suite, incl. a fixture captured from the real receiver
+├── external/esp-csi/        # Espressif esp-csi, used as an unmodified upstream reference
+├── .github/workflows/       # CI: Python tests + firmware builds for esp32c6
+└── data/                    # recorded datasets, created locally (not tracked in git)
 ```
 
 ## Getting started
@@ -71,9 +80,10 @@ cd esp32c6-wifi-csi
 cd firmware/csi_send && idf.py set-target esp32c6 build flash -p <SENDER_PORT>  && cd ../..
 cd firmware/csi_recv && idf.py set-target esp32c6 build flash -p <RECEIVER_PORT> && cd ../..
 
-# 3. Set up the Python environment
+# 3. Set up the Python environment and run the tests
 python3 -m venv .venv
-.venv/bin/pip install -r analysis/requirements.txt
+.venv/bin/pip install -r analysis/requirements-dev.txt
+.venv/bin/python -m pytest
 
 # 4. Verify the link (receiver connected through its UART USB-C port)
 .venv/bin/python analysis/link_check.py -p <RECEIVER_PORT> -d 30
@@ -109,6 +119,13 @@ To remove the serial bottleneck, the receiver's console speed was then raised to
 - **Session-based evaluation.** Training and test data come from different recording sessions, which prevents optimistic results caused by data leakage.
 - **Upstream stays untouched.** `external/esp-csi` is not modified. All project changes live in `firmware/` and `analysis/`.
 
-## Acknowledgements
+## Testing and CI
 
-The firmware in `firmware/` is derived from the get-started examples of [Espressif esp-csi](https://github.com/espressif/esp-csi), which are licensed under the Apache License 2.0.
+Every push runs [GitHub Actions](.github/workflows/ci.yml):
+
+- **Python tests** (Python 3.9 and 3.12): parsing and preprocessing against a capture from the real receiver, link-loss computation, an end-to-end pipeline run, and a check that the exported C decision tree, compiled with `cc`, predicts exactly like scikit-learn.
+- **Firmware builds**: both applications are built for `esp32c6` with ESP-IDF v5.5.
+
+## License
+
+This project is released under the [MIT License](LICENSE). The firmware in `firmware/` is derived from the get-started examples of [Espressif esp-csi](https://github.com/espressif/esp-csi) and keeps its Apache-2.0 license headers; see [LICENSE](LICENSE) for details.
