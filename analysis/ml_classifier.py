@@ -82,15 +82,17 @@ if __name__ == "__main__":
         "DecisionTree": DecisionTreeClassifier(max_depth=a.max_depth, random_state=0),
         "RandomForest": RandomForestClassifier(n_estimators=50, max_depth=a.max_depth, random_state=0),
     }
+    present = sorted(set(y))                      # sadece verisi olan siniflar (or. empty+walk)
+    names = [LABELS[i] for i in present]
     best = None
     for name, m in models.items():
         m.fit(X[~te], y[~te])
         pred = m.predict(X[te])
         acc = accuracy_score(y[te], pred)
         print(f"== {name}: dogruluk = {acc:.3f}")
-        print("Karisiklik matrisi (satir=gercek, sutun=tahmin) sirasi", LABELS)
-        print(confusion_matrix(y[te], pred, labels=[0, 1, 2]))
-        print(classification_report(y[te], pred, labels=[0, 1, 2], target_names=LABELS, zero_division=0))
+        print("Karisiklik matrisi (satir=gercek, sutun=tahmin) sirasi", names)
+        print(confusion_matrix(y[te], pred, labels=present))
+        print(classification_report(y[te], pred, labels=present, target_names=names, zero_division=0))
         if name == "DecisionTree":
             best = m
     if a.export_c:
