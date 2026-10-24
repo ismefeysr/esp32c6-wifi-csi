@@ -1,11 +1,12 @@
-"""WP3 - Ozellik cikarma + hafif model egitimi (oturum bazli ayirma).
+"""WP3 - Feature extraction + lightweight model training (session-based split).
 
-Kullanim:
+Usage:
   python ml_classifier.py --test-sessions s3 --win 50 --step 25
   python ml_classifier.py --test-sessions s3 --export-c tree_model.h --max-depth 6
 
-Veri: data/<empty|static|walk>_<sN>.csv   (log_csi.py cikti formati)
-Pencereler ayni oturumdan gelir; egitim/test AYRI OTURUMLARDAN secilir (veri sizintisini onler).
+Data: data/<empty|static|walk>_<sN>.csv   (log_csi.py output format)
+Windows come from a single session; train and test sets are taken from DIFFERENT
+sessions to prevent data leakage.
 """
 import argparse, glob
 import numpy as np
@@ -19,8 +20,8 @@ FEATS = ["mean", "std", "range", "var_sc_mean", "diff_std", "E_0.3-1Hz", "E_1-3H
 
 
 def window_features(W, fs):
-    """W: (win, S) normalize genlik. Ozellik vektoru (FEATS sirasinda)."""
-    s = W.mean(axis=1)                         # alt tasiyici ortalamasi (zaman serisi)
+    """W: (win, S) normalised amplitudes. Feature vector in FEATS order."""
+    s = W.mean(axis=1)                         # mean over subcarriers (time series)
     sp = np.abs(np.fft.rfft(s - s.mean())) ** 2
     fr = np.fft.rfftfreq(len(s), d=1.0 / fs)
     band = lambda lo, hi: sp[(fr >= lo) & (fr < hi)].sum() / (sp.sum() + 1e-12)
@@ -43,10 +44,10 @@ def build(paths, win, step):
 
 
 def tree_to_c(clf, name="csi_tree_predict"):
-    """sklearn karar agacini if/else C fonksiyonuna cevirir (ESP32'ye gomme icin)."""
+    """Convert an sklearn decision tree into an if/else C function (for the ESP32)."""
     t = clf.tree_
-    lines = [f"// Otomatik uretildi. Girdi: float f[{len(FEATS)}] sirasi: {', '.join(FEATS)}",
-             f"// Cikti: 0=empty 1=static 2=walk",
+    lines = [f"// Auto-generated. Input: float f[{len(FEATS)}] in order: {', '.join(FEATS)}",
+             f"// Output: 0=empty 1=static 2=walk",
              f"static inline int {name}(const float *f) {{"]
     def rec(n, ind):
         pad = "    " * ind
@@ -75,26 +76,26 @@ if __name__ == "__main__":
 
     X, y, g = build(sorted(glob.glob(a.data)), a.win, a.step)
     te = np.isin(g, a.test_sessions)
-    assert te.any() and (~te).any(), "Hem egitim hem test oturumu olmali"
-    print(f"Pencere: egitim={int((~te).sum())}  test={int(te.sum())}  | oturumlar test={a.test_sessions}\n")
+    assert te.any() and (~te).any(), "Both training and test sessions are required"
+    print(f"Windows: train={int((~te).sum())}  test={int(te.sum())}  | test sessions={a.test_sessions}\n")
 
     models = {
         "DecisionTree": DecisionTreeClassifier(max_depth=a.max_depth, random_state=0),
         "RandomForest": RandomForestClassifier(n_estimators=50, max_depth=a.max_depth, random_state=0),
     }
-    present = sorted(set(y))                      # sadece verisi olan siniflar (or. empty+walk)
+    present = sorted(set(y))                      # only classes that have data (e.g. empty+walk)
     names = [LABELS[i] for i in present]
     best = None
     for name, m in models.items():
         m.fit(X[~te], y[~te])
         pred = m.predict(X[te])
         acc = accuracy_score(y[te], pred)
-        print(f"== {name}: dogruluk = {acc:.3f}")
-        print("Karisiklik matrisi (satir=gercek, sutun=tahmin) sirasi", names)
+        print(f"== {name}: accuracy = {acc:.3f}")
+        print("Confusion matrix (rows=true, cols=predicted), order", names)
         print(confusion_matrix(y[te], pred, labels=present))
         print(classification_report(y[te], pred, labels=present, target_names=names, zero_division=0))
         if name == "DecisionTree":
             best = m
     if a.export_c:
         open(a.export_c, "w").write(tree_to_c(best) + "\n")
-        print("C ciktisi yazildi:", a.export_c)
+        print("C output written:", a.export_c)

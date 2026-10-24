@@ -1,96 +1,84 @@
-# ESP32-C6 ile Router'siz Wi-Fi CSI Insan Algilama - Baslangic Kiti
+# Analysis toolkit
 
-Donanim: 2x ESP32-C6 (biri gonderici, biri alici). Router YOK.
+Host-side Python tools for the router-less ESP32-C6 CSI sensing link: link quality checks, labelled data collection, preprocessing, a threshold baseline and a lightweight ML classifier.
 
-## 1) Firmware (`firmware/`, esp-csi get-started orneklerinden turetildi)
+| Script | Purpose | Work package |
+|---|---|---|
+| `link_check.py` | Measure packet rate, loss, RSSI/SNR and serial line utilisation; diagnose the cause of loss | WP1 |
+| `log_csi.py` | Record labelled CSI sessions from the receiver to `data/<label>_<session>.csv` | WP2 |
+| `csi_common.py` | Shared helpers: log parsing, amplitude extraction, Hampel filtering, normalisation, windowing | – |
+| `baseline.py` | Threshold detector calibrated on empty-room recordings | WP2 |
+| `ml_classifier.py` | Feature extraction, decision tree / random forest with session-based split, C export | WP3 |
+| `make_fake_data.py` | Synthetic data in the exact receiver format, for testing code without hardware | – |
 
-```bash
-. ~/esp/esp-idf/export.sh            # veya: get_idf   (ESP-IDF v5.5)
-
-# --- Gonderici kart (YESIL LED) ---
-cd firmware/csi_send
-idf.py set-target esp32c6
-idf.py build flash -p <PORT_1>
-
-# --- Alici kart (MAVI LED) ---
-cd ../csi_recv
-idf.py set-target esp32c6
-idf.py build flash -p <PORT_2> monitor
-```
-
-Beklenen: alici kartin monitorunde `CSI_DATA,...` satirlari akar.
-`csi_recv`, `csi_send`in paketlerini ozellikle yakalar; gonderici kapaliyken veri gelmez (normal).
-
-Notlar
-- Kartlar acilista dahili RGB LED ile kendini belli eder: gonderici yesil, alici mavi.
-- Iki kart kanal 11, HT40'ta calisir; gonderici 100 paket/sn yayinlar.
-- C6 devkitte iki USB-C girisi vardir ve ayni kart iki giriste farkli port adiyla gorunur.
-  Alicinin konsolu UART'ta: CSI icin alici **UART** girisinden takilmali. Gonderiye sadece guc yeter.
-- Kart kimligi icin port adi yerine cip MAC'ine bak: `esptool.py -p <PORT> read_mac`.
-- Seri baud hizi: `csi_recv` ayarina bak (su an 2000000; ilk olcumler 921600 ile yapildi). Farkliysa `-b ...` kullan.
-- Veri satirinin ek alanlari surume gore degisebilir; kit sadece SON alani (veri dizisi) kullanir.
-
-## 1a) Python ortami (bir kez)
+## Setup
 
 ```bash
-# repo kokunde
+# from the repository root
 python3 -m venv .venv
 .venv/bin/pip install -r analysis/requirements.txt
-source .venv/bin/activate          # sonraki komutlar icin
+source .venv/bin/activate
 cd analysis
 ```
 
-## 1b) Link kontrolu (WP1)
+The receiver must be connected through its **UART** USB-C port (see [`firmware/csi_recv`](../firmware/csi_recv/README.md)). Close `idf.py monitor` before running any tool, since it keeps the serial port busy. The tools default to the receiver's 2 Mbaud console; use `-b` to override it.
 
-Veri toplamadan once linkin saglikli oldugunu dogrula:
+## 1. Link check (WP1)
+
+Verify that the link is healthy before collecting data:
 
 ```bash
-python link_check.py -p <PORT_2> -d 30 --save data/link_<yer>.log
+python link_check.py -p <RECEIVER_PORT> -d 30 --save data/link_<place>.log
 ```
 
-Paket hizi, kayip (gondericinin sayacindan), RSSI/SNR ve seri hat dolulugunu raporlar,
-kaybin sebebini (seri darbogaz / zayif sinyal) tahmin eder. Hedef: kayip < %5.
+The tool reports the packet rate, the loss computed from the sender's sequence counter (robust to sender resets), RSSI/SNR and serial line utilisation. It then prints a diagnosis: healthy, serial bottleneck or weak signal. Target: **loss < 5 %**.
 
-Olcum kaydi (2026-10-24, kalabalik ortam, 921600 baud):
+Measurements so far (24 October 2026, crowded environment, 921600 baud):
 
-| Yerlesim | RSSI medyan | Hiz | Kayip | Teshis |
+| Placement | Median RSSI | Rate | Loss | Diagnosis |
 |---|---|---|---|---|
-| ilk (uzak) | -90 dBm | 20 Hz | %78 | zayif sinyal |
-| yakin | -62 dBm | 79 Hz | %13.5 | seri darbogaz (hat %99 dolu) |
+| Initial (far) | −90 dBm | 20 Hz | 78 % | weak signal |
+| Close | −62 dBm | 79 Hz | 13.5 % | serial bottleneck (line ~99 % utilised) |
 
-## 2) Veri toplama (WP2)
+The console speed was then raised to 2 Mbaud; the link has not yet been re-measured at that rate.
 
-```bash
-# .venv aktif (bkz. 1a); idf.py monitor'u KAPAT, sonra:
-python log_csi.py -p <PORT_2> -l empty  -s s1 -d 120
-python log_csi.py -p <PORT_2> -l static -s s1 -d 120
-python log_csi.py -p <PORT_2> -l walk   -s s1 -d 120
-# ayni uclu icin s2, s3 ... (farkli gun/saat/konum/kisi)
-```
-Dosya adi `etiket_sN.csv` olmali. Oturum bazli ayirma icin EN AZ 3 oturum topla.
-
-## 3) Baseline (esik) ve ML
+## 2. Data collection (WP2)
 
 ```bash
-python baseline.py --calib data/empty_s1.csv --k 4 --test "data/*_s2.csv"
-python ml_classifier.py --test-sessions s3 --export-c tree_model.h
+python log_csi.py -p <RECEIVER_PORT> -l empty -s s1 -d 120   # empty room
+python log_csi.py -p <RECEIVER_PORT> -l walk  -s s1 -d 120   # person walking through
+# repeat as s2, s3, ... on different days / times / placements
 ```
 
-## 4) Donanimsiz deneme (SENTETIK veri)
+- File names must follow `<label>_sN.csv`. Supported labels: `empty`, `static`, `walk`.
+- Collect **at least three sessions**: training and test sets are always taken from different sessions.
+- Existing recordings are never overwritten.
+
+## 3. Baseline and ML (WP2–WP3)
+
+```bash
+python baseline.py --calib data/empty_s1.csv --k 4 --test "data/*_s2.csv" --win 100 --step 50
+python ml_classifier.py --test-sessions s3 --win 100 --step 50 --export-c tree_model.h
+```
+
+- At ~100 packets/s, `--win 100` corresponds to a 1 s window. The window length should be chosen against real data.
+- Reports only include the classes present in the data, e.g. `empty` and `walk`.
+- `--export-c` writes the decision tree as a dependency-free C function for on-device inference (WP4). Class indices are fixed: `0=empty`, `1=static`, `2=walk`.
+
+## 4. Dry run with synthetic data
 
 ```bash
 python make_fake_data.py
-python baseline.py --calib data_fake/empty_s1.csv --test "data_fake/*_s2.csv"
-python ml_classifier.py --data "data_fake/*_s*.csv" --test-sessions s3
+python baseline.py --calib data_fake/empty_s1.csv --test "data_fake/*_s2.csv" --win 100 --step 50
+python ml_classifier.py --data "data_fake/*_s*.csv" --test-sessions s3 --win 100 --step 50
 ```
-Sentetik sonuclar GERCEK DEGILDIR; raporda kullanma.
 
-## Dikkat / bilinen sinirlar
-- Firmware iki C6 kartinda derlenip yuklendi ve CSI akisi dogrulandi (bkz. 1b). `link_check.py` gercek
-  alici loglariyla test edildi. `csi_common.py` (load_log/preprocess/motion_index) gercek C6 satirlarini
-  dogru okuyor: 128 alt tasiyici, 14 sabit/null tasiyici maskeleniyor. Baseline ve ML ise simdilik
-  yalnizca sentetik veriyle uctan uca calistirildi.
-- Sentetik veri (52 alt tasiyici, 50 Hz) gercek C6 formatindan (128 alt tasiyici, ~100 Hz) farklidir.
-  `--win 50` gercek veride ~0.5 sn'ye karsilik gelir (sentetikte 1 sn); pencere boyu WP2'de secilmeli.
-- esp-csi ornekleri guncelleniyor; CSV sutun sayisi veya ayar adlari degisebilir. Takilirsan `CSI_DATA` satirindan ornek bir satiri bana yapistir.
-- Gercek verideki dogruluk sentetikten cok daha dusuk cikabilir; bu normaldir ve raporlanmasi gereken bir sonuctur.
+> **Synthetic results are not real results and are never reported.** The generator copies the receiver's line format, subcarrier layout and amplitude range from a real capture, but its motion model is invented.
+
+## Validation status and known limitations
+
+- **Firmware:** built and flashed on two ESP32-C6 boards; the CSI stream was verified end to end.
+- **`link_check.py`:** tested against real receiver captures; it reproduced the expected diagnosis for both placements.
+- **`csi_common.py`:** parses real ESP32-C6 output correctly (128 subcarriers, of which the 14 null/guard carriers are masked).
+- **Baseline and ML:** so far only exercised end to end on synthetic data. Accuracy on real data is expected to be lower, and that is a result worth reporting.
+- **Unit tests:** see [`tests/`](../tests).
