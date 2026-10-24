@@ -16,3 +16,8 @@ graphify-out/
 .venv/
 data_fake/
 analysis/data_fake/
+
+# Local Word documents (report template and drafts are kept private)
+*.doc
+*.docx
+~$*
