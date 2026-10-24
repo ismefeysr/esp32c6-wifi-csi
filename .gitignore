@@ -4,3 +4,9 @@ sdkconfig.old
 managed_components/
 __pycache__/
 data/*.csv
+
+# macOS
+.DS_Store
+
+# graphify knowledge graph output (generated locally)
+graphify-out/
