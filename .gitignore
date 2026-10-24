@@ -4,6 +4,7 @@ sdkconfig.old
 managed_components/
 __pycache__/
 data/*.csv
+data/*.log
 
 # macOS
 .DS_Store

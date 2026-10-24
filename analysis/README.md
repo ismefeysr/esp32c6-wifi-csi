@@ -2,18 +2,17 @@
 
 Donanim: 2x ESP32-C6 (biri gonderici, biri alici). Router YOK.
 
-## 1) Firmware (hazir, kaynak kodlu: Espressif esp-csi)
+## 1) Firmware (`firmware/`, esp-csi get-started orneklerinden turetildi)
 
 ```bash
-git clone https://github.com/espressif/esp-csi.git
-# ESP-IDF kurulu ve aktif olmali (C6 destegi icin v5.1 veya uzeri; guncel v5.x onerilir)
+. ~/esp/esp-idf/export.sh            # veya: get_idf   (ESP-IDF v5.5)
 
-# --- Gonderici kart ---
-cd esp-csi/examples/get-started/csi_send
+# --- Gonderici kart (YESIL LED) ---
+cd firmware/csi_send
 idf.py set-target esp32c6
 idf.py build flash -p <PORT_1>
 
-# --- Alici kart ---
+# --- Alici kart (MAVI LED) ---
 cd ../csi_recv
 idf.py set-target esp32c6
 idf.py build flash -p <PORT_2> monitor
@@ -23,10 +22,31 @@ Beklenen: alici kartin monitorunde `CSI_DATA,...` satirlari akar.
 `csi_recv`, `csi_send`in paketlerini ozellikle yakalar; gonderici kapaliyken veri gelmez (normal).
 
 Notlar
-- Iki kartin ayni kanalda olmasi gerekir (menuconfig / ornek ayarlari).
-- C6 devkitte iki USB portu olur. Espressif ornekleri UART portunun kullanilmasini onerir.
-- Seri baud hizi: `csi_recv` ayarina bak (genelde 921600). Farkliysa `log_csi.py -b ...` kullan.
+- Kartlar acilista dahili RGB LED ile kendini belli eder: gonderici yesil, alici mavi.
+- Iki kart kanal 11, HT40'ta calisir; gonderici 100 paket/sn yayinlar.
+- C6 devkitte iki USB-C girisi vardir ve ayni kart iki giriste farkli port adiyla gorunur.
+  Alicinin konsolu UART'ta: CSI icin alici **UART** girisinden takilmali. Gonderiye sadece guc yeter.
+- Kart kimligi icin port adi yerine cip MAC'ine bak: `esptool.py -p <PORT> read_mac`.
+- Seri baud hizi: `csi_recv` ayarina bak (su an 921600). Farkliysa `-b ...` kullan.
 - Veri satirinin ek alanlari surume gore degisebilir; kit sadece SON alani (veri dizisi) kullanir.
+
+## 1b) Link kontrolu (WP1)
+
+Veri toplamadan once linkin saglikli oldugunu dogrula:
+
+```bash
+python link_check.py -p <PORT_2> -d 30 --save data/link_<yer>.log
+```
+
+Paket hizi, kayip (gondericinin sayacindan), RSSI/SNR ve seri hat dolulugunu raporlar,
+kaybin sebebini (seri darbogaz / zayif sinyal) tahmin eder. Hedef: kayip < %5.
+
+Olcum kaydi (2026-10-24, kalabalik ortam, 921600 baud):
+
+| Yerlesim | RSSI medyan | Hiz | Kayip | Teshis |
+|---|---|---|---|---|
+| ilk (uzak) | -90 dBm | 20 Hz | %78 | zayif sinyal |
+| yakin | -62 dBm | 79 Hz | %13.5 | seri darbogaz (hat %99 dolu) |
 
 ## 2) Veri toplama (WP2)
 
@@ -57,6 +77,7 @@ python ml_classifier.py --data "data_fake/*_s*.csv" --test-sessions s3
 Sentetik sonuclar GERCEK DEGILDIR; raporda kullanma.
 
 ## Dikkat / bilinen sinirlar
-- Firmware kismini (esp-csi) ve C6 uzerindeki gercek veriyi ben denemedim. Python betikleri sentetik veriyle test edildi.
+- Firmware iki C6 kartinda derlenip yuklendi ve CSI akisi dogrulandi (bkz. 1b). `link_check.py` gercek
+  alici loglariyla test edildi; diger Python betikleri simdilik yalnizca sentetik veriyle test edildi.
 - esp-csi ornekleri guncelleniyor; CSV sutun sayisi veya ayar adlari degisebilir. Takilirsan `CSI_DATA` satirindan ornek bir satiri bana yapistir.
 - Gercek verideki dogruluk sentetikten cok daha dusuk cikabilir; bu normaldir ve raporlanmasi gereken bir sonuctur.
