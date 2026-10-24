@@ -126,6 +126,10 @@ Every push runs [GitHub Actions](.github/workflows/ci.yml):
 - **Python tests** (Python 3.9 and 3.12): parsing and preprocessing against a capture from the real receiver, link-loss computation, an end-to-end pipeline run, and a check that the exported C decision tree, compiled with `cc`, predicts exactly like scikit-learn.
 - **Firmware builds**: both applications are built for `esp32c6` with ESP-IDF v5.5.
 
+## Contributing
+
+Issues and suggestions are welcome. See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the development setup and pull request guidelines, and the [Code of Conduct](.github/CODE_OF_CONDUCT.md). Security issues should be reported privately as described in [SECURITY.md](.github/SECURITY.md).
+
 ## License
 
 This project is released under the [MIT License](LICENSE). The firmware in `firmware/` is derived from the get-started examples of [Espressif esp-csi](https://github.com/espressif/esp-csi) and keeps its Apache-2.0 license headers; see [LICENSE](LICENSE) for details.

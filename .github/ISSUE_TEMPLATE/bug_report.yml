@@ -1,0 +1,59 @@
+name: Bug report
+description: Something does not work as expected (firmware, CSI link or analysis tools)
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please do **not** report security issues here; see SECURITY.md.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Firmware - csi_send
+        - Firmware - csi_recv
+        - Firmware - shared components
+        - Analysis tools (link check, logging, baseline, ML)
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Flash csi_recv on ...
+        2. Run `python analysis/link_check.py -p ... -d 30`
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant serial output, a few `CSI_DATA` lines, or a Python traceback.
+      render: text
+  - type: input
+    id: idf-version
+    attributes:
+      label: ESP-IDF version
+      placeholder: "output of `idf.py --version`, e.g. v5.5"
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      placeholder: "e.g. 2x ESP32-C6-DevKitC-1, receiver on the UART port"
+  - type: input
+    id: environment
+    attributes:
+      label: Host OS and Python version
+      placeholder: "e.g. macOS 15, Python 3.12"
