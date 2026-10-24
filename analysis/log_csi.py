@@ -14,7 +14,7 @@ import serial
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--port", required=True)
-ap.add_argument("-b", "--baud", type=int, default=921600)
+ap.add_argument("-b", "--baud", type=int, default=2000000)
 ap.add_argument("-l", "--label", required=True, choices=["empty", "static", "walk"])
 ap.add_argument("-s", "--session", required=True, help="ornek: s1, s2 ...")
 ap.add_argument("-d", "--duration", type=float, default=120)

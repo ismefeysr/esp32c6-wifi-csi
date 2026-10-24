@@ -21,7 +21,7 @@ SEQ, RSSI, NOISE = 1, 3, 5
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--port", required=True)
-ap.add_argument("-b", "--baud", type=int, default=921600)
+ap.add_argument("-b", "--baud", type=int, default=2000000)
 ap.add_argument("-d", "--duration", type=float, default=15)
 ap.add_argument("--send-rate", type=float, default=100, help="gondericinin hizi (Hz)")
 ap.add_argument("--save", help="ham seri ciktiyi bu dosyaya yaz")

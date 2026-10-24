@@ -27,7 +27,7 @@ Notlar
 - C6 devkitte iki USB-C girisi vardir ve ayni kart iki giriste farkli port adiyla gorunur.
   Alicinin konsolu UART'ta: CSI icin alici **UART** girisinden takilmali. Gonderiye sadece guc yeter.
 - Kart kimligi icin port adi yerine cip MAC'ine bak: `esptool.py -p <PORT> read_mac`.
-- Seri baud hizi: `csi_recv` ayarina bak (su an 921600). Farkliysa `-b ...` kullan.
+- Seri baud hizi: `csi_recv` ayarina bak (su an 2000000; ilk olcumler 921600 ile yapildi). Farkliysa `-b ...` kullan.
 - Veri satirinin ek alanlari surume gore degisebilir; kit sadece SON alani (veri dizisi) kullanir.
 
 ## 1b) Link kontrolu (WP1)
