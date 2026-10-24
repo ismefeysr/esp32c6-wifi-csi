@@ -63,6 +63,7 @@ The onboard RGB LED identifies each board at a glance: **green = sender**, **blu
 │       └── status_led/      # shared onboard RGB LED driver (board identification)
 ├── analysis/                # Python tools: link check, logging, baseline, ML (see analysis/README.md)
 ├── tests/                   # pytest suite, incl. a fixture captured from the real receiver
+├── docs/                    # experiment setup and recording log
 ├── external/esp-csi/        # Espressif esp-csi, used as an unmodified upstream reference
 ├── .github/workflows/       # CI: Python tests + firmware builds for esp32c6
 └── data/                    # recorded datasets, created locally (not tracked in git)
@@ -95,8 +96,8 @@ Data collection, the baseline detector and the ML classifier are documented in [
 
 | Work package | Description | Status |
 |---|---|---|
-| WP1 | Router-less CSI link | ✅ Link established; 🔄 final quality measurement in a quiet room |
-| WP2 | Baseline detector and data collection | 🔄 Tools ready, real data collection next |
+| WP1 | Router-less CSI link | ✅ Done: 3.1 % loss, −65 dBm in a quiet room at 2 Mbaud |
+| WP2 | Baseline detector and data collection | 🔄 Session 1 recorded (empty + walk); sessions 2 and 3 next |
 | WP3 | Machine-learning classifier | 🔄 Pipeline ready, awaiting real data |
 | WP4 | On-device detection (FreeRTOS) with an OLED display showing detected passages | ⏳ Planned |
 | WP5 | Experiments and final report | ⏳ Planned |
@@ -110,7 +111,16 @@ First link test (24 October 2026, crowded and noisy environment, receiver at 921
 | Initial (far) | −90 dBm | 20 Hz | 78 % | weak signal |
 | Close | −62 dBm | 79 Hz | 13.5 % | serial bottleneck (line ~99 % utilised) |
 
-To remove the serial bottleneck, the receiver's console speed was then raised to 2 Mbaud. Link quality at the new rate has not been measured yet.
+To remove the serial bottleneck, the receiver's console speed was then raised to 2 Mbaud.
+
+Link test at 2 Mbaud (24 October 2026, quiet 5 m × 3 m room, boards 2 m apart at ~1 m height, facing each other):
+
+| Placement | Median RSSI | Packet rate | Loss | Diagnosis |
+|---|---|---|---|---|
+| Boards lying flat, person in the room | −74 dBm | 85 Hz | 6.4 % | no clear cause |
+| Boards upright, room empty | −65 dBm | 88 Hz | 3.1 % | link is healthy (serial line 45 % utilised) |
+
+Standing the boards upright made the biggest difference. The full setup and the recording log are in [`docs/experiment-setup.md`](docs/experiment-setup.md).
 
 ## Methodology principles
 
