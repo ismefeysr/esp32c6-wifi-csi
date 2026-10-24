@@ -11,3 +11,8 @@ data/*.log
 
 # graphify knowledge graph output (generated locally)
 graphify-out/
+
+# Python virtual environment
+.venv/
+data_fake/
+analysis/data_fake/

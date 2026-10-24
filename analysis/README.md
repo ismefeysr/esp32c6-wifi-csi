@@ -30,6 +30,16 @@ Notlar
 - Seri baud hizi: `csi_recv` ayarina bak (su an 2000000; ilk olcumler 921600 ile yapildi). Farkliysa `-b ...` kullan.
 - Veri satirinin ek alanlari surume gore degisebilir; kit sadece SON alani (veri dizisi) kullanir.
 
+## 1a) Python ortami (bir kez)
+
+```bash
+# repo kokunde
+python3 -m venv .venv
+.venv/bin/pip install -r analysis/requirements.txt
+source .venv/bin/activate          # sonraki komutlar icin
+cd analysis
+```
+
 ## 1b) Link kontrolu (WP1)
 
 Veri toplamadan once linkin saglikli oldugunu dogrula:
@@ -51,8 +61,7 @@ Olcum kaydi (2026-10-24, kalabalik ortam, 921600 baud):
 ## 2) Veri toplama (WP2)
 
 ```bash
-pip install pyserial numpy scipy scikit-learn
-# idf.py monitor'u KAPAT, sonra:
+# .venv aktif (bkz. 1a); idf.py monitor'u KAPAT, sonra:
 python log_csi.py -p <PORT_2> -l empty  -s s1 -d 120
 python log_csi.py -p <PORT_2> -l static -s s1 -d 120
 python log_csi.py -p <PORT_2> -l walk   -s s1 -d 120
@@ -78,6 +87,10 @@ Sentetik sonuclar GERCEK DEGILDIR; raporda kullanma.
 
 ## Dikkat / bilinen sinirlar
 - Firmware iki C6 kartinda derlenip yuklendi ve CSI akisi dogrulandi (bkz. 1b). `link_check.py` gercek
-  alici loglariyla test edildi; diger Python betikleri simdilik yalnizca sentetik veriyle test edildi.
+  alici loglariyla test edildi. `csi_common.py` (load_log/preprocess/motion_index) gercek C6 satirlarini
+  dogru okuyor: 128 alt tasiyici, 14 sabit/null tasiyici maskeleniyor. Baseline ve ML ise simdilik
+  yalnizca sentetik veriyle uctan uca calistirildi.
+- Sentetik veri (52 alt tasiyici, 50 Hz) gercek C6 formatindan (128 alt tasiyici, ~100 Hz) farklidir.
+  `--win 50` gercek veride ~0.5 sn'ye karsilik gelir (sentetikte 1 sn); pencere boyu WP2'de secilmeli.
 - esp-csi ornekleri guncelleniyor; CSV sutun sayisi veya ayar adlari degisebilir. Takilirsan `CSI_DATA` satirindan ornek bir satiri bana yapistir.
 - Gercek verideki dogruluk sentetikten cok daha dusuk cikabilir; bu normaldir ve raporlanmasi gereken bir sonuctur.
