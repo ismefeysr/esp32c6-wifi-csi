@@ -50,6 +50,14 @@ python log_csi.py -p <RECEIVER_PORT> -l walk  -s s1 -d 120   # person walking th
 # repeat as s2, s3, ... on different days / times / placements
 ```
 
+For a whole session in one run (link check → `empty` → `walk`, with sounds at the start and end of each recording and a quality report), use:
+
+```bash
+python record_session.py -s s2 --note "evening, door closed"   # port auto-detected
+```
+
+It writes `data/link_s2.log`, `data/empty_s2.csv`, `data/walk_s2.csv` and appends one line per recording (start time, packet rate, sequence loss, largest gap, note) to `data/sessions.jsonl`.
+
 - File names must follow `<label>_sN.csv`. Supported labels: `empty`, `static`, `walk`.
 - Collect **at least three sessions**: training and test sets are always taken from different sessions.
 - Existing recordings are never overwritten.

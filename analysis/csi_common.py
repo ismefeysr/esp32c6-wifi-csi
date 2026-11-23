@@ -89,3 +89,43 @@ def file_meta(path):
 
 def list_logs(pattern="data/*_s*.csv"):
     return sorted(glob.glob(pattern))
+
+
+def seq_stats(seq):
+    """Loss from the sender's packet counter. A counter that goes backwards is a
+    sender reset; each segment is counted separately.
+    -> dict(received, expected, loss_pct, gaps, max_gap, resets)"""
+    if len(seq) < 2:
+        return dict(received=len(seq), expected=len(seq), loss_pct=0.0, gaps=0, max_gap=0, resets=0)
+    expected, gaps, resets = 0, [], 0
+    start = prev = seq[0]
+    for s in seq[1:]:
+        if s <= prev:
+            expected += prev - start + 1
+            start, resets = s, resets + 1
+        elif s - prev > 1:
+            gaps.append(s - prev - 1)
+        prev = s
+    expected += prev - start + 1
+    return dict(received=len(seq), expected=expected, loss_pct=100 * (1 - len(seq) / expected),
+                gaps=len(gaps), max_gap=max(gaps, default=0), resets=resets)
+
+
+def log_quality(path):
+    """Recording health from a log_csi file: packet count, rate, seq loss, largest time gap."""
+    ts, seq = [], []
+    with open(path, encoding="utf8", errors="ignore") as f:
+        for ln in f:
+            t, _, raw = ln.strip().partition(";")
+            if parse_line(raw) is None:
+                continue
+            try:
+                ts.append(float(t))
+                seq.append(int(raw.split(",", 2)[1]))
+            except (ValueError, IndexError):
+                continue
+    q = seq_stats(seq)
+    dur = ts[-1] - ts[0] if len(ts) > 1 else 0.0
+    q.update(duration_s=dur, rate_hz=(len(ts) - 1) / dur if dur > 0 else 0.0,
+             max_time_gap_s=float(np.diff(ts).max()) if len(ts) > 1 else 0.0)
+    return q

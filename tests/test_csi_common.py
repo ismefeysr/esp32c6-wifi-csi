@@ -2,7 +2,8 @@
 import numpy as np
 import pytest
 
-from csi_common import file_meta, load_log, motion_index, parse_line, preprocess, windows
+from csi_common import (file_meta, load_log, log_quality, motion_index, parse_line, preprocess,
+                        seq_stats, windows)
 
 # Null/guard subcarriers reported by the ESP32-C6 in HT40 mode
 C6_NULL_CARRIERS = list(range(0, 6)) + [63, 64, 65] + list(range(123, 128))
@@ -100,3 +101,21 @@ def test_file_meta_parses_label_and_session(name, expected):
 def test_file_meta_rejects_bad_names(name):
     with pytest.raises(ValueError):
         file_meta(name)
+
+
+@pytest.mark.parametrize("seq,expected", [
+    ([0, 1, 2, 3], dict(expected=4, gaps=0, max_gap=0, resets=0)),
+    ([0, 1, 4, 5, 7], dict(expected=8, gaps=2, max_gap=2, resets=0)),
+    ([10, 11, 12, 0, 1], dict(expected=5, gaps=0, max_gap=0, resets=1)),   # sender restart
+])
+def test_seq_stats_counts_gaps_and_resets(seq, expected):
+    q = seq_stats(seq)
+    assert {k: q[k] for k in expected} == expected
+    assert q["loss_pct"] == pytest.approx(100 * (1 - len(seq) / expected["expected"]))
+
+
+def test_log_quality_on_real_capture(c6_capture):
+    q = log_quality(c6_capture)
+    assert q["received"] == 40
+    assert q["duration_s"] > 0 and q["rate_hz"] > 0
+    assert 0 <= q["loss_pct"] < 100

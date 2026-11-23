@@ -16,6 +16,8 @@ The receiver must be connected through the UART USB-C port (the console is on UA
 import argparse, csv, io, statistics as st, time
 import serial
 
+from csi_common import seq_stats
+
 # esp32c6 csi_recv header line:
 # type,seq,mac,rssi,rate,noise_floor,fft_gain,agc_gain,channel,local_timestamp,...,data
 SEQ, RSSI, NOISE = 1, 3, 5
@@ -57,26 +59,15 @@ if len(seq) < 2:
     raise SystemExit(f"Not enough CSI lines ({len(seq)}), {len(buf)} bytes received. "
                      "Is the sender running? Is the receiver on the UART port? Is the baud rate correct?")
 
-# sender reset -> seq goes backwards; count segments separately
-expected, gaps, resets = 0, [], 0
-start = prev = seq[0]
-for s in seq[1:]:
-    if s <= prev:
-        expected += prev - start + 1
-        start, resets = s, resets + 1
-    elif s - prev > 1:
-        gaps.append(s - prev - 1)
-    prev = s
-expected += prev - start + 1
-
+q = seq_stats(seq)
 rate = len(seq) / elapsed
-loss = 100 * (1 - len(seq) / expected)
+loss = q["loss_pct"]
 line_util = 100 * len(buf) / elapsed / (a.baud / 10)          # 8N1: 10 bits per byte
 nf = st.median(noise)
 
-print(f"\nPackets : {len(seq)} received / {expected} sent, {rate:.1f} Hz (target {a.send_rate:.0f})")
-print(f"Loss    : {loss:.1f}%  ({len(gaps)} gaps, largest {max(gaps, default=0)} packets"
-      + (f", {resets} sender resets" if resets else "") + ")")
+print(f"\nPackets : {len(seq)} received / {q['expected']} sent, {rate:.1f} Hz (target {a.send_rate:.0f})")
+print(f"Loss    : {loss:.1f}%  ({q['gaps']} gaps, largest {q['max_gap']} packets"
+      + (f", {q['resets']} sender resets" if q['resets'] else "") + ")")
 print(f"RSSI    : min {min(rssi)} / median {st.median(rssi):.0f} / max {max(rssi)} dBm, "
       f"std {st.pstdev(rssi):.1f}")
 print(f"SNR     : ~{st.median(rssi) - nf:.0f} dB (noise floor {nf:.0f} dBm)")
