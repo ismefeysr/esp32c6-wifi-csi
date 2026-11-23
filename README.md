@@ -97,8 +97,8 @@ Data collection, the baseline detector and the ML classifier are documented in [
 | Work package | Description | Status |
 |---|---|---|
 | WP1 | Router-less CSI link | ✅ Done: 3.1 % loss, −65 dBm in a quiet room at 2 Mbaud |
-| WP2 | Baseline detector and data collection | 🔄 Session 1 recorded (empty + walk); sessions 2 and 3 next |
-| WP3 | Machine-learning classifier | 🔄 Pipeline ready, awaiting real data |
+| WP2 | Baseline detector and data collection | 🔄 Sessions 1 and 2 recorded (empty + walk); session 3 next |
+| WP3 | Machine-learning classifier | 🔄 Pipeline ready; trained and evaluated once session 3 is recorded |
 | WP4 | On-device detection (FreeRTOS) with an OLED display showing detected passages | ⏳ Planned |
 | WP5 | Experiments and final report | ⏳ Planned |
 
@@ -122,6 +122,36 @@ Link test at 2 Mbaud (24 October 2026, quiet 5 m × 3 m room, boards 2 m apart a
 
 Standing the boards upright made the biggest difference. The full setup and the recording log are in [`docs/experiment-setup.md`](docs/experiment-setup.md).
 
+### Recorded sessions
+
+Each session has one 120 s recording per label, taken with the same board placement (positions marked with tape). Statistics come from `log_quality()` in `analysis/csi_common.py`; loss is computed from the sender's sequence counter.
+
+| Session | Date | Label | Packets | Rate | Loss | Largest gap |
+|---|---|---|---|---|---|---|
+| s1 | 2026-10-24 | empty | 10 437 | 87.0 Hz | 4.3 % | 5 packets |
+| s1 | 2026-10-24 | walk | 10 571 | 88.1 Hz | 3.1 % | 2 packets |
+| s2 | 2026-11-23, evening | empty | 10 121 | 84.4 Hz | 7.2 % | 5 packets |
+| s2 | 2026-11-23, evening | walk | 10 133 | 84.5 Hz | 7.1 % | 6 packets |
+
+One s2 recording was rejected because the host laptop went to sleep mid-recording; recordings now run under `caffeinate`. Details are in [`docs/experiment-setup.md`](docs/experiment-setup.md).
+
+### Preliminary results: threshold baseline across sessions
+
+The baseline is calibrated on the empty-room recording of one session and tested on the other session (1 s windows: `--win 100 --step 50`). A window is flagged as motion when its motion index exceeds mean + k·std of the calibration windows.
+
+| Calibrated on → tested on | k | False alarms (empty) | Detection (walk) |
+|---|---|---|---|
+| s1 → s2 | 3 | 9.0 % | 100 % |
+| s1 → s2 | 5 | 6.0 % | 100 % |
+| s1 → s2 | 10 | 1.0 % | 100 % |
+| s2 → s1 | 3 | 0.0 % | 51.9 % |
+| s2 → s1 | 5 | 0.0 % | 34.8 % |
+| s2 → s1 | 10 | 0.0 % | 21.9 % |
+
+**What this shows so far:** a threshold calibrated in one session does not transfer cleanly to another. The motion index of the empty room differs between sessions (median 1.30e-3 in s1, 8.1e-4 in s2, with occasional spikes in s2), and walking produced a much stronger response in s2 than in s1. A threshold set on s1 therefore gives false alarms on s2, while a threshold set on s2 misses about half of the walking windows in s1. This is the motivation for the ML classifier and for session-based evaluation.
+
+These numbers come from two sessions only and are not final. The full comparison of the baseline and the ML classifier will use three or more sessions.
+
 ## Methodology principles
 
 - **No fabricated results.** Every reported number comes from real measurements on the hardware.
@@ -131,9 +161,22 @@ Standing the boards upright made the biggest difference. The full setup and the 
 
 ## Testing and CI
 
+The pytest suite (31 tests) runs without hardware. Parsing tests use a fixture of 40 packets captured from the real receiver (`tests/fixtures/c6_capture.csv`); end-to-end tests use synthetic data in the same format.
+
+| Test file | What it covers |
+|---|---|
+| `tests/test_csi_common.py` | CSI line parsing (incl. truncated serial lines), amplitude extraction, null/guard carrier masking, Hampel filter and normalisation, windowing, motion index, file naming, sequence-based loss with sender resets, recording quality summary |
+| `tests/test_link_check.py` | Loss from the sender's sequence counter, sender reset handling, clean failure without CSI lines |
+| `tests/test_ml_classifier.py` | Window feature vector, and a check that the exported C decision tree, compiled with `cc`, predicts exactly like scikit-learn |
+| `tests/test_pipeline.py` | Synthetic data generator, baseline run, two-class classifier with C export |
+
+```bash
+.venv/bin/python -m pytest        # from the repository root
+```
+
 Every push runs [GitHub Actions](.github/workflows/ci.yml):
 
-- **Python tests** (Python 3.10 and 3.12): parsing and preprocessing against a capture from the real receiver, link-loss computation, an end-to-end pipeline run, and a check that the exported C decision tree, compiled with `cc`, predicts exactly like scikit-learn.
+- **Python tests** on Python 3.10 and 3.12.
 - **Firmware builds**: both applications are built for `esp32c6` with ESP-IDF v5.5.
 
 ## Contributing

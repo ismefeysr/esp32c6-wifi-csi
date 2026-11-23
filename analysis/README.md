@@ -6,6 +6,7 @@ Host-side Python tools for the router-less ESP32-C6 CSI sensing link: link quali
 |---|---|---|
 | `link_check.py` | Measure packet rate, loss, RSSI/SNR and serial line utilisation; diagnose the cause of loss | WP1 |
 | `log_csi.py` | Record labelled CSI sessions from the receiver to `data/<label>_<session>.csv` | WP2 |
+| `record_session.py` | Record a whole session (link check, empty, walk) in one run, with sound cues and a quality report | WP2 |
 | `csi_common.py` | Shared helpers: log parsing, amplitude extraction, Hampel filtering, normalisation, windowing | – |
 | `baseline.py` | Threshold detector calibrated on empty-room recordings | WP2 |
 | `ml_classifier.py` | Feature extraction, decision tree / random forest with session-based split, C export | WP3 |
@@ -88,5 +89,6 @@ python ml_classifier.py --data "data_fake/*_s*.csv" --test-sessions s3 --win 100
 - **Firmware:** built and flashed on two ESP32-C6 boards; the CSI stream was verified end to end.
 - **`link_check.py`:** tested against real receiver captures; it reproduced the expected diagnosis for both placements.
 - **`csi_common.py`:** parses real ESP32-C6 output correctly (128 subcarriers, of which the 14 null/guard carriers are masked).
-- **Baseline and ML:** so far only exercised end to end on synthetic data. Accuracy on real data is expected to be lower, and that is a result worth reporting.
+- **Baseline:** run on real data from sessions s1 and s2; cross-session results are in the [main README](../README.md#preliminary-results-threshold-baseline-across-sessions).
+- **ML classifier:** so far only exercised end to end on synthetic data; it will be evaluated once session s3 is recorded.
 - **Unit tests:** see [`tests/`](../tests).
