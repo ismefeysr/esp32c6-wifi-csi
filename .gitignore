@@ -5,6 +5,8 @@ managed_components/
 __pycache__/
 data/*.csv
 data/*.log
+data/*.jsonl
+data/rejected/
 
 # macOS
 .DS_Store
