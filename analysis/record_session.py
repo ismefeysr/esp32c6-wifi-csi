@@ -2,6 +2,7 @@
 
 Usage:
   python record_session.py -s s2 --note "evening, door closed"
+  python record_session.py -s s4 --condition torso --note "1 m apart, boards at chest height"
   python record_session.py -s s3 -p /dev/cu.usbmodemXXXX -d 120 --countdown 15
 
 Steps (each waits for Enter, so you can reposition between them):
@@ -62,6 +63,8 @@ def main():
     ap.add_argument("--countdown", type=int, default=15)
     ap.add_argument("--link-duration", type=float, default=15, help="0 skips the link check")
     ap.add_argument("--labels", nargs="+", default=["empty", "walk"], choices=["empty", "static", "walk"])
+    ap.add_argument("--condition", default="home2m",
+                    help="placement this session belongs to, e.g. home2m, torso, leg (used to group sessions)")
     ap.add_argument("--note", default="", help="free text stored with the session (time of day, door...)")
     ap.add_argument("--data", default="data")
     a = ap.parse_args()
@@ -74,7 +77,7 @@ def main():
     existing = [p for p in outs.values() if os.path.exists(p)]
     if existing:
         raise SystemExit(f"Already recorded: {', '.join(existing)}. Choose another session name.")
-    print(f"Session {a.session} on {port} @ {a.baud} baud: {', '.join(a.labels)} x {a.duration:.0f} s")
+    print(f"Session {a.session} ({a.condition}) on {port} @ {a.baud} baud: {', '.join(a.labels)} x {a.duration:.0f} s")
 
     if a.link_duration > 0:
         wait("Link check: room empty, both boards powered.")
@@ -102,7 +105,7 @@ def main():
         beep("end")
         q = log_quality(outs[lb])
         print(f"{lb}: {summary(q)}")
-        results.append(dict(session=a.session, label=lb, file=outs[lb], started=started,
+        results.append(dict(session=a.session, label=lb, file=outs[lb], started=started, condition=a.condition,
                             port=port, baud=a.baud, note=a.note, **q))
 
     with open(f"{a.data}/sessions.jsonl", "a", encoding="utf8") as f:

@@ -59,4 +59,16 @@ Per-recording statistics are also appended to `data/sessions.jsonl` by `record_s
   reset the receiver in place (boards at their marks, sender already running) before each session.
 - s2 link check (person in the room): 85.9 Hz, loss 5.5 %, median RSSI -69 dBm (s1: -65 dBm).
 
-Planned: s3 at a different time of day with the same setup.
+## Planned sessions
+
+Sessions are grouped by placement (`condition` in `data/sessions.jsonl`). Each condition gets at least
+two sessions so that it can be held out for testing; between two sessions of the same condition the
+boards are lifted, placed again and the receiver is reset.
+
+| Condition | Distance | Board height | Sessions |
+|---|---|---|---|
+| `home2m` | ~2 m | ~1 m | s1, s2, s3 |
+| `torso` | ~1 m | ~1.1 m (chest/waist, as in the live demo) | s4, s5 |
+| `leg` | ~1 m | ~0.45 m (on chairs) | s6, s7 |
+
+The live demo uses ~1 m with the boards held by two people at chest/waist height, chips facing each other.
