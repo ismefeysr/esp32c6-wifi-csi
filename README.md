@@ -50,7 +50,7 @@ The onboard RGB LED identifies each board at a glance: **green = sender**, **blu
 | Display (planned) | OLED module on the receiver for showing detections |
 | Framework | ESP-IDF v5.5 (target `esp32c6`) |
 | CSI stack | [Espressif esp-csi](https://github.com/espressif/esp-csi) (git submodule) |
-| Host | Python 3.9+, numpy, scipy, scikit-learn, pyserial |
+| Host | Python 3.10+, numpy, scipy, scikit-learn, pyserial |
 
 ## Repository structure
 
@@ -133,7 +133,7 @@ Standing the boards upright made the biggest difference. The full setup and the 
 
 Every push runs [GitHub Actions](.github/workflows/ci.yml):
 
-- **Python tests** (Python 3.9 and 3.12): parsing and preprocessing against a capture from the real receiver, link-loss computation, an end-to-end pipeline run, and a check that the exported C decision tree, compiled with `cc`, predicts exactly like scikit-learn.
+- **Python tests** (Python 3.10 and 3.12): parsing and preprocessing against a capture from the real receiver, link-loss computation, an end-to-end pipeline run, and a check that the exported C decision tree, compiled with `cc`, predicts exactly like scikit-learn.
 - **Firmware builds**: both applications are built for `esp32c6` with ESP-IDF v5.5.
 
 ## Contributing
