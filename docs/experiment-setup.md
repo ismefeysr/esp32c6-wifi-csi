@@ -43,6 +43,8 @@ An earlier check with the boards lying flat and a person in the room gave
 | s2 | 2026-11-23 22:07 | walk | `data/walk_s2.csv` | 10 133 | 120 s | Evening; 84.5 Hz, loss 7.1 %, largest gap 6 pkt |
 | s3 | 2026-11-24 21:28 | empty | `data/empty_s3.csv` | 9 451 | 110 s | Evening; 85.8 Hz, loss 5.6 %, largest gap 3 pkt; first 10 s trimmed (see notes) |
 | s3 | 2026-11-24 21:31 | walk | `data/walk_s3.csv` | 10 358 | 120 s | Evening; 86.3 Hz, loss 5.0 %, largest gap 3 pkt |
+| s4 | 2026-11-24 22:02 | empty | `data/empty_s4.csv` | 10 443 | 120 s | `h110d180`; 87.0 Hz, loss 4.3 %, largest gap 3 pkt |
+| s4 | 2026-11-24 22:05 | walk | `data/walk_s4.csv` | 10 319 | 120 s | `h110d180`; 86.0 Hz, loss 5.4 %, largest gap 4 pkt |
 
 Per-recording statistics are also appended to `data/sessions.jsonl` by `record_session.py`.
 
@@ -51,6 +53,7 @@ Per-recording statistics are also appended to `data/sessions.jsonl` by `record_s
 | File | Reason |
 |---|---|
 | `data/rejected/empty_s2_mac_sleep.csv` | Host laptop idle-slept after ~90 s (on battery); no packets for 118 s. Recordings now run under `caffeinate`. |
+| `data/rejected/link_s4_aborted.log` | First s4 attempt: link check loss 6.2 % (> 5 %, RSSI -65 dBm, largest gap 2 pkt) made the recorder abort before any recording. Re-run unchanged and continued at 6.3 %. |
 
 ### Notes
 
@@ -77,7 +80,11 @@ boards are lifted, placed again and the receiver is reset.
 | Condition | Distance | Board height | Sessions |
 |---|---|---|---|
 | `home2m` | ~2 m | ~1 m | s1, s2, s3 |
-| `torso` | ~1 m | ~1.1 m (chest/waist, as in the live demo) | s4, s5 |
+| `h110d180` | ~1.8 m | ~1.1 m (closest achievable to `torso` in the room) | s4, s5 |
+| `torso` | ~1 m | ~1.1 m (chest/waist, as in the live demo) | later (demo rehearsal) |
 | `leg` | ~1 m | ~0.45 m (on chairs) | s6, s7 |
+
+`h110d180` was added because a 1 m link at 1.1 m height cannot be set up in the room. It differs from `home2m`
+mainly in height, so it shows the effect of raising the boards; `torso` stays reserved for the demo distance.
 
 The live demo uses ~1 m with the boards held by two people at chest/waist height, chips facing each other.
