@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wi-Fi CSI crossing detector</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #181b22; --text: #e8eaf0; --muted: #8b90a0; --grid: #2a2f3a;
+    --clear: #2e9d6a; --cross: #e0533d; --cal: #c9962b; --accent: #5b8def;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px; display: grid; gap: 16px;
+         grid-template-columns: 2fr 1fr; grid-template-rows: auto auto; min-height: 100vh; align-content: start; }
+  .panel { background: var(--panel); border-radius: 14px; padding: 20px; }
+  #status { grid-column: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            min-height: 46vh; transition: background-color .15s ease; }
+  #status.clear { background: color-mix(in srgb, var(--clear) 22%, var(--panel)); }
+  #status.cross { background: var(--cross); }
+  #status.cal { background: color-mix(in srgb, var(--cal) 18%, var(--panel)); }
+  #state { font-size: clamp(48px, 9vw, 120px); font-weight: 800; letter-spacing: .02em; }
+  #hint { color: var(--muted); font-size: 20px; margin-top: 8px; text-align: center; }
+  #status.cross #hint { color: #fff; }
+  #bar { width: 60%; height: 10px; border-radius: 5px; background: var(--grid); margin-top: 18px; overflow: hidden; }
+  #bar > div { height: 100%; width: 0; background: var(--cal); }
+  #side { grid-column: 2; display: grid; gap: 16px; align-content: start; }
+  .label { color: var(--muted); font-size: 14px; text-transform: uppercase; letter-spacing: .08em; }
+  #count { font-size: 96px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-variant-numeric: tabular-nums; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .charts { grid-column: 1 / span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  canvas { width: 100%; height: 180px; display: block; }
+  button { background: var(--grid); color: var(--text); border: 0; border-radius: 8px; padding: 8px 14px;
+           font: inherit; cursor: pointer; }
+  button:hover { background: #363c4a; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } #side, .charts { grid-column: 1; }
+                              .charts { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <section id="status" class="panel cal">
+    <div id="state">…</div>
+    <div id="hint"></div>
+    <div id="bar"><div></div></div>
+  </section>
+  <aside id="side">
+    <div class="panel">
+      <div class="label" data-t="passages"></div>
+      <div id="count">0</div>
+      <button id="reset" data-t="reset"></button>
+    </div>
+    <div class="panel kv">
+      <span data-t="rssi"></span><span id="rssi">–</span>
+      <span data-t="ref"></span><span id="ref">–</span>
+      <span data-t="score"></span><span id="score">–</span>
+      <span data-t="rate"></span><span id="rate">–</span>
+      <span data-t="time"></span><span id="time">–</span>
+    </div>
+  </aside>
+  <div class="charts">
+    <div class="panel"><div class="label" data-t="rssiChart"></div><canvas id="c1"></canvas></div>
+    <div class="panel"><div class="label" data-t="scoreChart"></div><canvas id="c2"></canvas></div>
+  </div>
+</main>
+<script>
+const STR = {
+  en: { passages: "Passages", reset: "Reset counter", rssi: "RSSI", ref: "Reference", score: "Score",
+        rate: "Packet rate", time: "Time", rssiChart: "RSSI (dBm), dashed: reference",
+        scoreChart: "Detection score, dashed: threshold", cross: "CROSSING", clear: "CLEAR",
+        cal: "CALIBRATING", calHint: "Nobody crosses the link", clearHint: "Nobody between the boards",
+        crossHint: "Someone is crossing the link", wait: "Waiting for data…", ended: "SOURCE ENDED",
+        lost: "CONNECTION LOST" },
+  tr: { passages: "Geçiş sayısı", reset: "Sayacı sıfırla", rssi: "RSSI", ref: "Referans", score: "Skor",
+        rate: "Paket hızı", time: "Süre", rssiChart: "RSSI (dBm), kesikli: referans",
+        scoreChart: "Algılama skoru, kesikli: eşik", cross: "GEÇİŞ VAR", clear: "GEÇİŞ YOK",
+        cal: "KALİBRASYON", calHint: "Kartların arasından kimse geçmesin", clearHint: "Kartların arasında kimse yok",
+        crossHint: "Biri kartların arasından geçiyor", wait: "Veri bekleniyor…", ended: "KAYNAK BİTTİ",
+        lost: "BAĞLANTI KOPTU" },
+};
+const lang = new URLSearchParams(location.search).get("lang") === "tr" ? "tr" : "en";
+const T = STR[lang];
+document.documentElement.lang = lang;
+document.querySelectorAll("[data-t]").forEach(el => el.textContent = T[el.dataset.t]);
+
+const $ = id => document.getElementById(id);
+const N = 450;                                   // ~20 s at ~22 updates/s
+const hist = { rssi: [], ref: null, score: [], cross: [] };
+let offset = 0, lastPassages = 0;
+$("state").textContent = T.wait;
+$("reset").onclick = () => { offset = lastPassages; $("count").textContent = 0; };
+
+function push(arr, v) { arr.push(v); if (arr.length > N) arr.shift(); }
+
+function draw(canvas, series, opts) {
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== w * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+  const g = canvas.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement);
+  const [lo, hi] = opts.range(series);
+  const y = v => h - 6 - (Math.min(Math.max(v, lo), hi) - lo) / (hi - lo || 1) * (h - 12);
+  const x = i => i / (N - 1) * w;
+  // crossing bands
+  g.fillStyle = css.getPropertyValue("--cross") + "33";
+  hist.cross.forEach((c, i) => { if (c) g.fillRect(x(i), 0, w / N + 1, h); });
+  g.fillStyle = css.getPropertyValue("--muted"); g.font = "12px sans-serif";
+  g.fillText(hi.toFixed(opts.dec), 4, 14); g.fillText(lo.toFixed(opts.dec), 4, h - 4);
+  if (opts.line != null) {
+    g.strokeStyle = css.getPropertyValue("--muted"); g.setLineDash([5, 5]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, y(opts.line)); g.lineTo(w, y(opts.line)); g.stroke(); g.setLineDash([]);
+  }
+  g.strokeStyle = css.getPropertyValue("--accent"); g.lineWidth = 2; g.beginPath();
+  series.forEach((v, i) => i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v))); g.stroke();
+}
+
+function render(m) {
+  const st = $("status");
+  if (m.phase === "ended") { $("state").textContent = T.ended; return; }
+  if (m.phase === "calibrating") {
+    st.className = "panel cal"; $("state").textContent = T.cal; $("hint").textContent = T.calHint;
+    $("bar").style.display = "block"; $("bar").firstElementChild.style.width = (100 * m.progress) + "%";
+  } else {
+    $("bar").style.display = "none";
+    st.className = "panel " + (m.crossing ? "cross" : "clear");
+    $("state").textContent = m.crossing ? T.cross : T.clear;
+    $("hint").textContent = m.crossing ? T.crossHint : T.clearHint;
+    hist.ref = m.ref_rssi; lastPassages = m.passages;
+    $("count").textContent = m.passages - offset;
+    $("ref").textContent = m.ref_rssi.toFixed(0) + " dBm";
+    $("score").textContent = m.score.toFixed(2);
+  }
+  $("rssi").textContent = m.rssi.toFixed(0) + " dBm";
+  $("rate").textContent = m.rate ? m.rate.toFixed(0) + " Hz" : "–";
+  $("time").textContent = m.t.toFixed(0) + " s";
+  push(hist.rssi, m.rssi); push(hist.score, m.score || 0); push(hist.cross, !!m.crossing);
+  draw($("c1"), hist.rssi, { dec: 0, line: hist.ref,
+    range: s => { const a = Math.min(...s, hist.ref ?? 0) - 2, b = Math.max(...s, hist.ref ?? -100) + 2; return [a, b]; } });
+  draw($("c2"), hist.score, { dec: 1, line: 1, range: s => [Math.min(0, ...s), Math.max(2, ...s)] });
+}
+
+const es = new EventSource("/events");
+es.onmessage = e => render(JSON.parse(e.data));
+es.onerror = () => { $("state").textContent = T.lost; $("status").className = "panel cal"; };
+es.onopen = () => { if ($("state").textContent === T.lost) $("state").textContent = T.wait; };
+</script>
+</body>
+</html>

@@ -99,7 +99,7 @@ Data collection, the baseline detector and the ML classifier are documented in [
 | WP1 | Router-less CSI link | ✅ Done: 3.1 % loss, −65 dBm in a quiet room at 2 Mbaud |
 | WP2 | Baseline detector and data collection | 🔄 Sessions 1–3 recorded at the 2 m placement (empty + walk); torso and leg placements next |
 | WP3 | Machine-learning classifier | 🔄 First leave-one-session-out results on s1–s3: 0.85 mean accuracy with empty-room calibration |
-| WP4 | On-device detection (FreeRTOS) with an OLED display showing detected passages | ⏳ Planned |
+| WP4 | On-device detection (FreeRTOS) with an OLED display showing detected passages | 🔄 Host-side prototype: live crossing detector with a browser UI (`analysis/live_detector.py`) |
 | WP5 | Experiments and final report | ⏳ Planned |
 
 ### Measurements so far
@@ -134,6 +134,8 @@ Each session has one 120 s recording per label, taken with the same board placem
 | s2 | 2026-11-23, evening | walk | 10 133 | 84.5 Hz | 7.1 % | 6 packets |
 | s3 | 2026-11-24, evening | empty | 9 451 | 85.8 Hz | 5.6 % | 3 packets |
 | s3 | 2026-11-24, evening | walk | 10 358 | 86.3 Hz | 5.0 % | 3 packets |
+| s4 | 2026-11-24, evening, boards 1.8 m apart at 1.1 m | empty | 10 443 | 87.0 Hz | 4.3 % | 3 packets |
+| s4 | 2026-11-24, evening, boards 1.8 m apart at 1.1 m | walk | 10 319 | 86.0 Hz | 5.4 % | 4 packets |
 
 One s2 recording was rejected because the host laptop went to sleep mid-recording; recordings now run under `caffeinate`. The first 10 s of the s3 empty recording were cut because the room was not yet empty (110 s remain). Details are in [`docs/experiment-setup.md`](docs/experiment-setup.md).
 
@@ -169,7 +171,16 @@ Each session is held out in turn; the model is trained on the other two (`python
 
 **What this shows so far:** without calibration the classifier does not transfer between sessions; in s2 almost every empty window is classified as walking. Calibrating against a short empty-room phase is what makes the sessions comparable. Most remaining errors are missed walk windows: the walk label covers the whole recording, including the turns ~1 m away from the link, where a 1 s window looks like an empty room. s3 has the weakest walking response of the three sessions, which is why the single decision tree struggles there.
 
-The window length and calibration length were chosen after trying a few values on these same three sessions, so the numbers are optimistic. They will be checked again on the torso and leg sessions without retuning.
+The window length and calibration length were chosen after trying a few values on these same three sessions, so the numbers are optimistic. They are checked on new placements without retuning.
+
+**First check on a new placement (s4: boards 1.8 m apart at 1.1 m height, trained on s1–s3, settings unchanged):**
+
+| Model | Calibrated | Not calibrated |
+|---|---|---|
+| Decision tree (depth 4) | 0.942 (empty recall 0.87, walk recall 1.00) | 0.976 |
+| Random forest | 0.929 (empty recall 0.84, walk recall 1.00) | 0.948 |
+
+On s4 every walk window is detected; the errors are false alarms in the empty room. Here calibration does not help and costs a few points, unlike on s1–s3, so its benefit is not settled yet; the second session at this placement (s5) and the leg sessions will show which variant holds up.
 
 ## Methodology principles
 
@@ -180,13 +191,14 @@ The window length and calibration length were chosen after trying a few values o
 
 ## Testing and CI
 
-The pytest suite (33 tests) runs without hardware. Parsing tests use a fixture of 40 packets captured from the real receiver (`tests/fixtures/c6_capture.csv`); end-to-end tests use synthetic data in the same format.
+The pytest suite (39 tests) runs without hardware. Parsing tests use a fixture of 40 packets captured from the real receiver (`tests/fixtures/c6_capture.csv`); end-to-end tests use synthetic data in the same format.
 
 | Test file | What it covers |
 |---|---|
 | `tests/test_csi_common.py` | CSI line parsing (incl. truncated serial lines), amplitude extraction, null/guard carrier masking, Hampel filter and normalisation, windowing, motion index, file naming, sequence-based loss with sender resets, recording quality summary |
 | `tests/test_link_check.py` | Loss from the sender's sequence counter, sender reset handling, clean failure without CSI lines |
 | `tests/test_ml_classifier.py` | Window feature vector, and a check that the exported C decision tree, compiled with `cc`, predicts exactly like scikit-learn |
+| `tests/test_live_detector.py` | Live detector: packet parsing, one passage per RSSI dip, slow RSSI shifts ignored, `--use-motion`, replay time axis, UI route |
 | `tests/test_pipeline.py` | Synthetic data generator, baseline run, two-class classifier with C export |
 
 ```bash
