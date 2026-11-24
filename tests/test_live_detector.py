@@ -85,3 +85,21 @@ def test_ui_page_is_served_with_a_query_string():
         assert urllib.request.urlopen(url, timeout=5).read() == b"<html>ok</html>"
     finally:
         server.shutdown()
+
+
+def test_countdown_publishes_time_left_before_start():
+    from live_detector import countdown
+
+    class Rec:
+        def __init__(self):
+            self.msgs = []
+
+        def publish(self, m):
+            self.msgs.append(m)
+
+    hub = Rec()
+    countdown(hub, 0.3, tick=0.1)
+    assert hub.msgs and all(m["phase"] == "waiting" for m in hub.msgs)
+    assert hub.msgs[0]["total"] == 0.3
+    countdown(hub := Rec(), 0)
+    assert hub.msgs == []

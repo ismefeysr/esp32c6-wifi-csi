@@ -10,6 +10,7 @@ How it works:
   A body crossing the link blocks the direct path for ~0.5 s, which shows up as a sharp RSSI dip of
   5-8 dB. Someone standing or moving next to the link only shifts the RSSI slowly (a few dB), and people
   elsewhere in the room mainly change the reflections.
+  0. Get ready: --delay seconds (default 15) of countdown before the receiver is read.
   1. Warm-up: the first --cal seconds fill the history; nobody should cross the link.
   2. Detection: every --every packets the mean RSSI of the last 15 packets (~0.17 s) is compared with a
      rolling baseline, the median RSSI between 3.5 s and 0.5 s ago. dip = baseline - current and
@@ -225,6 +226,17 @@ def make_handler(hub, page):
     return Handler
 
 
+def countdown(hub, seconds, tick=1.0):
+    """Get-ready phase before anything is read: the UI shows the time left until warm-up starts."""
+    end = time.time() + seconds
+    while (left := end - time.time()) > 0:
+        hub.publish(dict(phase="waiting", left=round(left), total=seconds))
+        print(f"Warm-up starts in {left:3.0f} s", end="\r", flush=True)
+        time.sleep(min(tick, left))
+    if seconds > 0:
+        print(" " * 30, end="\r", flush=True)
+
+
 def run(source, det, hub, every, log_path=None):
     n, rate_t, rate_n, rate = 0, time.time(), 0, 0.0
     log = open(log_path, "w", encoding="utf8") if log_path else None
@@ -254,6 +266,8 @@ def main():
     ap.add_argument("--replay", nargs="+", help="log_csi.py files to replay instead of the serial port")
     ap.add_argument("--speed", type=float, default=1.0, help="replay speed factor")
     ap.add_argument("--http-port", type=int, default=8000)
+    ap.add_argument("--delay", type=float, default=15.0,
+                    help="get-ready seconds before the warm-up starts (0 = start at once)")
     ap.add_argument("--cal", type=float, default=10.0, help="warm-up seconds (nobody crosses)")
     ap.add_argument("--k-rssi", type=float, default=5.0, help="RSSI dip (dB) that counts as a crossing")
     ap.add_argument("--refractory", type=float, default=2.2,
@@ -272,6 +286,7 @@ def main():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"UI: http://localhost:{a.http_port}  (source: {'replay ' + ' '.join(a.replay) if a.replay else 'serial'})", flush=True)
     try:
+        countdown(hub, a.delay)
         run(source, det, hub, a.every, a.save)
         print("Source ended; UI stays up. Ctrl+C to quit.")
         while True:

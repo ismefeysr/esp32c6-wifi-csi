@@ -191,7 +191,7 @@ On s4 every walk window is detected; the errors are false alarms in the empty ro
 
 ## Testing and CI
 
-The pytest suite (39 tests) runs without hardware. Parsing tests use a fixture of 40 packets captured from the real receiver (`tests/fixtures/c6_capture.csv`); end-to-end tests use synthetic data in the same format.
+The pytest suite (40 tests) runs without hardware. Parsing tests use a fixture of 40 packets captured from the real receiver (`tests/fixtures/c6_capture.csv`); end-to-end tests use synthetic data in the same format.
 
 | Test file | What it covers |
 |---|---|

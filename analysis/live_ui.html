@@ -71,13 +71,13 @@ const STR = {
         rate: "Packet rate", time: "Time", rssiChart: "RSSI (dBm), dashed: reference",
         scoreChart: "Detection score, dashed: threshold", cross: "CROSSING", clear: "CLEAR",
         cal: "CALIBRATING", calHint: "Nobody crosses the link", clearHint: "Nobody between the boards",
-        crossHint: "Someone is crossing the link", wait: "Waiting for data…", ended: "SOURCE ENDED",
+        crossHint: "Someone is crossing the link", ready: "GET READY", readyHint: "Calibration starts in {s} s", wait: "Waiting for data…", ended: "SOURCE ENDED",
         lost: "CONNECTION LOST" },
   tr: { passages: "Geçiş sayısı", reset: "Sayacı sıfırla", rssi: "RSSI", ref: "Referans", score: "Skor",
         rate: "Paket hızı", time: "Süre", rssiChart: "RSSI (dBm), kesikli: referans",
         scoreChart: "Algılama skoru, kesikli: eşik", cross: "GEÇİŞ VAR", clear: "GEÇİŞ YOK",
         cal: "KALİBRASYON", calHint: "Kartların arasından kimse geçmesin", clearHint: "Kartların arasında kimse yok",
-        crossHint: "Biri kartların arasından geçiyor", wait: "Veri bekleniyor…", ended: "KAYNAK BİTTİ",
+        crossHint: "Biri kartların arasından geçiyor", ready: "HAZIRLIK", readyHint: "Kalibrasyon {s} saniye sonra başlıyor", wait: "Veri bekleniyor…", ended: "KAYNAK BİTTİ",
         lost: "BAĞLANTI KOPTU" },
 };
 const lang = new URLSearchParams(location.search).get("lang") === "tr" ? "tr" : "en";
@@ -118,6 +118,12 @@ function draw(canvas, series, opts) {
 function render(m) {
   const st = $("status");
   if (m.phase === "ended") { $("state").textContent = T.ended; return; }
+  if (m.phase === "waiting") {
+    st.className = "panel cal"; $("state").textContent = T.ready;
+    $("hint").textContent = T.readyHint.replace("{s}", m.left);
+    $("bar").style.display = "block"; $("bar").firstElementChild.style.width = (100 * (1 - m.left / m.total)) + "%";
+    return;
+  }
   if (m.phase === "calibrating") {
     st.className = "panel cal"; $("state").textContent = T.cal; $("hint").textContent = T.calHint;
     $("bar").style.display = "block"; $("bar").firstElementChild.style.width = (100 * m.progress) + "%";

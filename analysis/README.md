@@ -90,7 +90,8 @@ python live_detector.py --replay ../data/empty_s4.csv ../data/walk_s4.csv     # 
   ~0.17 s with a rolling baseline (median of 3.5 s to 0.5 s ago) and counts a passage when the dip reaches
   `--k-rssi` dB (default 5). One crossing often breaks into two dips ~1.5–2 s apart, so no new passage is counted
   for `--refractory` seconds (default 2.2); two real crossings closer than that count as one.
-- The first `--cal` seconds (default 10) are a warm-up: nobody crosses the link.
+- On start the UI counts down `--delay` seconds (default 15) to give time to get in place; then the first `--cal`
+  seconds (default 10) are a warm-up in which nobody crosses the link.
 - `--use-motion` also scores the subcarrier motion index; it reacts to any movement near the link and is off by default.
 - `http://localhost:8000/?lang=tr` shows the UI in Turkish. `--save file.log` also records the stream.
 
