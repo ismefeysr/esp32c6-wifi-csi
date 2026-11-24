@@ -41,6 +41,8 @@ An earlier check with the boards lying flat and a person in the room gave
 | s1 | 2026-10-24 | walk | `data/walk_s1.csv` | 10 571 | 120 s | Continuous walking along the path |
 | s2 | 2026-11-23 22:03 | empty | `data/empty_s2.csv` | 10 121 | 120 s | Evening; 84.4 Hz, loss 7.2 %, largest gap 5 pkt |
 | s2 | 2026-11-23 22:07 | walk | `data/walk_s2.csv` | 10 133 | 120 s | Evening; 84.5 Hz, loss 7.1 %, largest gap 6 pkt |
+| s3 | 2026-11-24 21:28 | empty | `data/empty_s3.csv` | 9 451 | 110 s | Evening; 85.8 Hz, loss 5.6 %, largest gap 3 pkt; first 10 s trimmed (see notes) |
+| s3 | 2026-11-24 21:31 | walk | `data/walk_s3.csv` | 10 358 | 120 s | Evening; 86.3 Hz, loss 5.0 %, largest gap 3 pkt |
 
 Per-recording statistics are also appended to `data/sessions.jsonl` by `record_session.py`.
 
@@ -58,6 +60,13 @@ Per-recording statistics are also appended to `data/sessions.jsonl` by `record_s
   The per-packet normalisation in `preprocess` removes a constant scale. To keep sessions comparable,
   reset the receiver in place (boards at their marks, sender already running) before each session.
 - s2 link check (person in the room): 85.9 Hz, loss 5.5 %, median RSSI -69 dBm (s1: -65 dBm).
+- s3: receiver reset in place before the session; afterwards max |v| was 60 (not multiples of 10), so the gain
+  compensation factor differs again from s1 and s2. Link check: 87.3 Hz, loss 3.9 %, median RSSI -63 dBm.
+- s3 empty: the recording started before the room was empty; leaving shows as a burst at 4-6 s. The first 10 s were
+  cut; the untrimmed file is kept in `data/untrimmed/empty_s3.csv`.
+- s3 walk: the crossings are visible as peaks every ~4-5 s, but much weaker than in s2 (mean per-subcarrier std of
+  the normalised amplitude: s1 1.9x, s2 4.6x, s3 1.3x the empty level). The baseline empty level is also higher
+  (0.05 vs 0.03 in s2). Same marks and condition, so this is session-to-session variation the classifier has to handle.
 
 ## Planned sessions
 
