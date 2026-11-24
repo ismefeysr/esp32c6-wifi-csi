@@ -67,10 +67,13 @@ It writes `data/link_s2.log`, `data/empty_s2.csv`, `data/walk_s2.csv` and append
 
 ```bash
 python baseline.py --calib data/empty_s1.csv --k 4 --test "data/*_s2.csv" --win 100 --step 50
-python ml_classifier.py --test-sessions s3 --win 100 --step 50 --export-c tree_model.h
+python ml_classifier.py --loso                                     # hold out each session in turn
+python ml_classifier.py --test-sessions s3 --export-c tree_model.h
 ```
 
-- At ~100 packets/s, `--win 100` corresponds to a 1 s window. The window length should be chosen against real data.
+- Defaults: `--win 100 --step 25` (~1.15 s windows at ~87 packets/s), decision tree depth 4.
+- Features are computed per subcarrier and then pooled. `preprocess` divides each packet by its subcarrier mean, so a mean over subcarriers carries no information.
+- Empty-room calibration: the first `--cal-seconds` (default 30) of each session's `empty` recording are the reference, and every feature of that session is scaled as (value − median) / IQR of the reference. These windows are never tested on. Every session therefore needs an `empty_sN.csv`; `--cal-seconds 0` turns calibration off.
 - Reports only include the classes present in the data, e.g. `empty` and `walk`.
 - `--export-c` writes the decision tree as a dependency-free C function for on-device inference (WP4). Class indices are fixed: `0=empty`, `1=static`, `2=walk`.
 
@@ -79,7 +82,7 @@ python ml_classifier.py --test-sessions s3 --win 100 --step 50 --export-c tree_m
 ```bash
 python make_fake_data.py
 python baseline.py --calib data_fake/empty_s1.csv --test "data_fake/*_s2.csv" --win 100 --step 50
-python ml_classifier.py --data "data_fake/*_s*.csv" --test-sessions s3 --win 100 --step 50
+python ml_classifier.py --data "data_fake/*_s*.csv" --loso
 ```
 
 > **Synthetic results are not real results and are never reported.** The generator copies the receiver's line format, subcarrier layout and amplitude range from a real capture, but its motion model is invented.

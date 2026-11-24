@@ -97,8 +97,8 @@ Data collection, the baseline detector and the ML classifier are documented in [
 | Work package | Description | Status |
 |---|---|---|
 | WP1 | Router-less CSI link | ✅ Done: 3.1 % loss, −65 dBm in a quiet room at 2 Mbaud |
-| WP2 | Baseline detector and data collection | 🔄 Sessions 1 and 2 recorded (empty + walk); session 3 next |
-| WP3 | Machine-learning classifier | 🔄 Pipeline ready; trained and evaluated once session 3 is recorded |
+| WP2 | Baseline detector and data collection | 🔄 Sessions 1–3 recorded at the 2 m placement (empty + walk); torso and leg placements next |
+| WP3 | Machine-learning classifier | 🔄 First leave-one-session-out results on s1–s3: 0.85 mean accuracy with empty-room calibration |
 | WP4 | On-device detection (FreeRTOS) with an OLED display showing detected passages | ⏳ Planned |
 | WP5 | Experiments and final report | ⏳ Planned |
 
@@ -132,8 +132,10 @@ Each session has one 120 s recording per label, taken with the same board placem
 | s1 | 2026-10-24 | walk | 10 571 | 88.1 Hz | 3.1 % | 2 packets |
 | s2 | 2026-11-23, evening | empty | 10 121 | 84.4 Hz | 7.2 % | 5 packets |
 | s2 | 2026-11-23, evening | walk | 10 133 | 84.5 Hz | 7.1 % | 6 packets |
+| s3 | 2026-11-24, evening | empty | 9 451 | 85.8 Hz | 5.6 % | 3 packets |
+| s3 | 2026-11-24, evening | walk | 10 358 | 86.3 Hz | 5.0 % | 3 packets |
 
-One s2 recording was rejected because the host laptop went to sleep mid-recording; recordings now run under `caffeinate`. Details are in [`docs/experiment-setup.md`](docs/experiment-setup.md).
+One s2 recording was rejected because the host laptop went to sleep mid-recording; recordings now run under `caffeinate`. The first 10 s of the s3 empty recording were cut because the room was not yet empty (110 s remain). Details are in [`docs/experiment-setup.md`](docs/experiment-setup.md).
 
 ### Preliminary results: threshold baseline across sessions
 
@@ -152,6 +154,23 @@ The baseline is calibrated on the empty-room recording of one session and tested
 
 These numbers come from two sessions only and are not final. The full comparison of the baseline and the ML classifier will use three or more sessions.
 
+### Preliminary results: ML classifier, leave-one-session-out
+
+Each session is held out in turn; the model is trained on the other two (`python ml_classifier.py --loso`, windows of 100 packets ≈ 1.15 s, step 25). Features are computed per subcarrier and pooled: variance, spread, packet-to-packet change, correlation between neighbouring subcarriers and band energies (0.3–1, 1–3, 3–8 Hz).
+
+**Empty-room calibration.** Absolute feature levels shift from session to session (gain compensation factor, small placement changes). As in the live demo, each session starts with an empty-room phase: the first 30 s of its empty recording are the reference, and every feature is expressed as (value − reference median) / reference IQR. The reference windows are never used for testing.
+
+| Test session | Decision tree (depth 4), no calibration | Random forest, no calibration | Decision tree, calibrated | Random forest, calibrated |
+|---|---|---|---|---|
+| s1 | 0.730 | 0.717 | 0.847 | 0.835 |
+| s2 | 0.310 | 0.477 | 0.919 | 0.909 |
+| s3 | 0.772 | 0.756 | 0.626 | 0.800 |
+| **mean** | 0.604 | 0.650 | 0.798 | **0.848** |
+
+**What this shows so far:** without calibration the classifier does not transfer between sessions; in s2 almost every empty window is classified as walking. Calibrating against a short empty-room phase is what makes the sessions comparable. Most remaining errors are missed walk windows: the walk label covers the whole recording, including the turns ~1 m away from the link, where a 1 s window looks like an empty room. s3 has the weakest walking response of the three sessions, which is why the single decision tree struggles there.
+
+The window length and calibration length were chosen after trying a few values on these same three sessions, so the numbers are optimistic. They will be checked again on the torso and leg sessions without retuning.
+
 ## Methodology principles
 
 - **No fabricated results.** Every reported number comes from real measurements on the hardware.
@@ -161,7 +180,7 @@ These numbers come from two sessions only and are not final. The full comparison
 
 ## Testing and CI
 
-The pytest suite (31 tests) runs without hardware. Parsing tests use a fixture of 40 packets captured from the real receiver (`tests/fixtures/c6_capture.csv`); end-to-end tests use synthetic data in the same format.
+The pytest suite (33 tests) runs without hardware. Parsing tests use a fixture of 40 packets captured from the real receiver (`tests/fixtures/c6_capture.csv`); end-to-end tests use synthetic data in the same format.
 
 | Test file | What it covers |
 |---|---|
